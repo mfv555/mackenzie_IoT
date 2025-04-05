@@ -21,6 +21,7 @@ PubSubClient client(espClient);
 #define RELE D1
 
 int limite_umidade = 400;
+String estado_manual = "Desligada";
 
 void setup_wifi() {
   delay(10);
@@ -30,10 +31,24 @@ void setup_wifi() {
   }
 }
 
+void callback(char* topic, byte* payload, unsigned int length) {
+  payload[length] = '\0';
+  String msg = String((char*)payload);
+
+  if (String(topic) == feed_bomba) {
+    estado_manual = msg;
+    if (msg == "Ligada") {
+      digitalWrite(RELE, LOW);
+    } else {
+      digitalWrite(RELE, HIGH);
+    }
+  }
+}
+
 void reconnect() {
   while (!client.connected()) {
     if (client.connect("ESP8266Client", mqtt_user, mqtt_pass)) {
-      client.subscribe(feed_bomba); // controle manual se quiser
+      client.subscribe(feed_bomba);
     } else {
       delay(5000);
     }
@@ -46,6 +61,7 @@ void setup() {
   Serial.begin(115200);
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 }
 
 void loop() {
@@ -58,18 +74,19 @@ void loop() {
   Serial.print("Umidade: ");
   Serial.println(valor_umidade);
 
-  if (valor_umidade < limite_umidade) {
-    digitalWrite(RELE, LOW); // Liga bomba
-    client.publish(feed_bomba, "Ligada");
-  } else {
-    digitalWrite(RELE, HIGH); // Desliga bomba
-    client.publish(feed_bomba, "Desligada");
-  }
-
-  // Publica umidade
+  // Publica umidade no Adafruit IO
   char buffer[10];
   snprintf(buffer, sizeof(buffer), "%d", valor_umidade);
   client.publish(feed_umidade, buffer);
 
-  delay(10000); // Aguarda 10 segundos
+  // Modo automático (prioridade para solo seco)
+  if (valor_umidade < limite_umidade) {
+    digitalWrite(RELE, LOW); // liga bomba
+    client.publish(feed_bomba, "Ligada");
+  } else if (estado_manual == "Desligada") {
+    digitalWrite(RELE, HIGH); // mantém desligada
+    client.publish(feed_bomba, "Desligada");
+  }
+
+  delay(10000); // lê a cada 10 segundos
 }
