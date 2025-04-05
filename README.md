@@ -1,1 +1,3 @@
 # mackenzie_IoT
+
+Projeto de um sistema de irrigação inteligente e automatizado que utiliza sensores de umidade do solo para monitoramento contínuo e atuadores para controlar uma bomba d'água. A comunicação entre os dispositivos é feita via protocolo MQTT, permitindo transmissão eficiente e remota de dados para um painel de supervisão. Essa abordagem visa otimizar o uso da água, reduzir o desperdício e contribuir para os Objetivos de Desenvolvimento Sustentável (ODS 6) – Água Potável e Saneamento – ao promover práticas mais sustentáveis na agricultura e gestão hídrica, com impacto positivo na conservação de recursos e economia de água.
