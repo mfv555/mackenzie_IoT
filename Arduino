@@ -8,10 +8,10 @@ const char* password = "H0m3_2025#w1F!";
 // Adafruit IO MQTT
 const char* mqtt_server = "io.adafruit.com";
 const int mqtt_port = 1883;
-const char* mqtt_user = "SEU_USUARIO_ADAFRUIT";
-const char* mqtt_pass = "SEU_KEY_ADAFRUIT";
-const char* feed_umidade = "SEU_USUARIO_ADAFRUIT/feeds/umidade-solo";
-const char* feed_bomba = "SEU_USUARIO_ADAFRUIT/feeds/estado-bomba";
+const char* mqtt_user = "mfv555";
+const char* mqtt_pass = "aio_jHTL65Ew1FLTo9jmVHp4XFVbyb3f";
+const char* feed_umidade = "mfv555/feeds/umidade-solo";
+const char* feed_bomba = "mfv555/feeds/estado-bomba";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
