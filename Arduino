@@ -2,8 +2,8 @@
 #include <PubSubClient.h>
 
 // WiFi
-const char* ssid = "WIFI_HOME";
-const char* password = "H0m3_2025#w1F!";
+const char* ssid = "Home_2.4G";
+const char* password = "Mackenzie2025";
 
 // Adafruit IO MQTT
 const char* mqtt_server = "io.adafruit.com";
@@ -26,30 +26,40 @@ String estado_manual = "Desligada";
 void setup_wifi() {
   delay(10);
   WiFi.begin(ssid, password);
+  Serial.print("Conectando ao WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.print(".");
   }
+  Serial.println("\nWiFi conectado.");
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  payload[length] = '\0';
+  payload[length] = '\0'; // garante que a string esteja terminada corretamente
   String msg = String((char*)payload);
 
-  if (String(topic) == feed_bomba) {
+  if (strcmp(topic, feed_bomba) == 0) {
     estado_manual = msg;
     if (msg == "Ligada") {
       digitalWrite(RELE, LOW);
     } else {
       digitalWrite(RELE, HIGH);
     }
+    Serial.print("Comando manual recebido: ");
+    Serial.println(msg);
   }
 }
 
 void reconnect() {
   while (!client.connected()) {
+    Serial.print("Tentando conectar ao MQTT...");
     if (client.connect("ESP8266Client", mqtt_user, mqtt_pass)) {
+      Serial.println("Conectado.");
       client.subscribe(feed_bomba);
     } else {
+      Serial.print("Falha na conexão. Código: ");
+      Serial.print(client.state());
+      Serial.println(" Tentando novamente em 5 segundos...");
       delay(5000);
     }
   }
@@ -79,14 +89,16 @@ void loop() {
   snprintf(buffer, sizeof(buffer), "%d", valor_umidade);
   client.publish(feed_umidade, buffer);
 
-  // Modo automático (prioridade para solo seco)
-  if (valor_umidade < limite_umidade) {
+  // Modo automático (prioridade solo seco)
+  if (valor_umidade > limite_umidade) {
+    // solo seco
     digitalWrite(RELE, LOW); // liga bomba
     client.publish(feed_bomba, "Ligada");
   } else if (estado_manual == "Desligada") {
-    digitalWrite(RELE, HIGH); // mantém desligada
+    // solo úmido e comando manual é "Desligada"
+    digitalWrite(RELE, HIGH); // desliga bomba
     client.publish(feed_bomba, "Desligada");
   }
 
-  delay(10000); // lê a cada 10 segundos
+  delay(10000); // aguarda 10 segundos
 }
