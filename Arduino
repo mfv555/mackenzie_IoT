@@ -3,13 +3,13 @@
 
 // WiFi
 const char* ssid = "Home_2.4G";
-const char* password = "Mackenzie2025";
+const char* password = "TesteWIFI@2025";
 
 // Adafruit IO MQTT
 const char* mqtt_server = "io.adafruit.com";
 const int mqtt_port = 1883;
 const char* mqtt_user = "mfv555";
-const char* mqtt_pass = "aio_jHTL65Ew1FLTo9jmVHp4XFVbyb3f";
+const char* mqtt_pass = "aio_VNSb955Yt3a8l5Xtn1tHb7xKuQxn";
 const char* feed_umidade = "mfv555/feeds/umidade-solo";
 const char* feed_bomba = "mfv555/feeds/estado-bomba";
 
