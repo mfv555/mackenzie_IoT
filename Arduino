@@ -1,21 +1,31 @@
-#define BLYNK_TEMPLATE_ID "TMPL25ae-FeSC"
-#define BLYNK_TEMPLATE_NAME "Regador Automático"
-#define BLYNK_AUTH_TOKEN "ubGKcMKVvmDMUYQ_cB7j3de1lZgAeyTc"
-
-#define BLYNK_PRINT Serial
-
 #include <ESP8266WiFi.h>
-#include <BlynkSimpleEsp8266.h>
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
 
-char ssid[] = "WIFI_HOME";
-char pass[] = "Mackenzie2025";
+// Credenciais Wi-Fi
+#define WLAN_SSID       "WIFI_HOME"
+#define WLAN_PASS       "M@ckenzie2025"
 
+// Credenciais Adafruit IO
+#define AIO_SERVER      "io.adafruit.com"
+#define AIO_SERVERPORT  1883
+#define AIO_USERNAME    "mfv555"
+#define AIO_KEY         "aio_BxHn71Y41k3RbMeWVE6Cg6po4Qhj"
+
+// Pinos
 #define sensor A0
 #define waterPump D1
 
-BlynkTimer timer;
+WiFiClient client;
 
-int estadoBotao = 0;
+// Cliente MQTT
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
+
+// Feeds
+Adafruit_MQTT_Publish umidadeFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/umidade-solo");
+Adafruit_MQTT_Subscribe bombaFeed = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/estado-bomba");
+
+void MQTT_connect();
 
 void setup() {
   Serial.begin(115200);
@@ -23,28 +33,62 @@ void setup() {
   pinMode(waterPump, OUTPUT);
   digitalWrite(waterPump, HIGH); // bomba desligada
 
-  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  // Conectar ao Wi-Fi
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado");
 
-  timer.setInterval(3000L, enviarUmidade); // a cada 3s
+  // Subscrever feed de controle da bomba
+  mqtt.subscribe(&bombaFeed);
 }
 
-BLYNK_WRITE(V1) {
-  estadoBotao = param.asInt();
-  digitalWrite(waterPump, estadoBotao == 1 ? LOW : HIGH);
-}
-
-void enviarUmidade() {
-  int leitura = analogRead(sensor);
-  int umidade = map(leitura, 0, 1024, 100, 0); // quanto maior a leitura, menor a umidade
-  Blynk.virtualWrite(V0, umidade);
-  Serial.print("Umidade: ");
-  Serial.print(umidade);
-  Serial.print(" (Raw: ");
-  Serial.print(leitura);
-  Serial.println(")");
-}
+unsigned long ultimaLeitura = 0;
+const unsigned long intervalo = 3000;
 
 void loop() {
-  Blynk.run();
-  timer.run();
+  MQTT_connect();
+
+  // Verifica comandos da bomba
+  Adafruit_MQTT_Subscribe *subscription;
+  while ((subscription = mqtt.readSubscription(100))) {
+    if (subscription == &bombaFeed) {
+      String valor = (char *)bombaFeed.lastread;
+      Serial.print("Comando da bomba recebido: ");
+      Serial.println(valor);
+      digitalWrite(waterPump, valor == "1" ? LOW : HIGH);
+    }
+  }
+
+  // Envia umidade a cada 3 segundos
+  if (millis() - ultimaLeitura > intervalo) {
+    ultimaLeitura = millis();
+    int leitura = analogRead(sensor);
+    int umidade = map(leitura, 0, 1024, 100, 0);
+    Serial.print("Umidade: ");
+    Serial.println(umidade);
+    if (!umidadeFeed.publish(umidade)) {
+      Serial.println("Falha ao publicar umidade");
+    }
+  }
+}
+
+// Conexão MQTT
+void MQTT_connect() {
+  int8_t ret;
+
+  if (mqtt.connected()) return;
+
+  Serial.print("Conectando ao MQTT... ");
+
+  while ((ret = mqtt.connect()) != 0) {
+    Serial.println(mqtt.connectErrorString(ret));
+    Serial.println("Tentando novamente em 5 segundos...");
+    mqtt.disconnect();
+    delay(5000);
+  }
+
+  Serial.println("Conectado ao MQTT!");
 }
