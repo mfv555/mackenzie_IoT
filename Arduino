@@ -9,8 +9,8 @@
 // Credenciais Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883
-#define AIO_USERNAME    "mfv555"
-#define AIO_KEY         "aio_BxHn71Y41k3RbMeWVE6Cg6po4Qhj"
+#define AIO_USERNAME    "user_mackenzie_exemplo"
+#define AIO_KEY         "aio_EXEMPLO_VE6Cg6po4Qhj"
 
 // Pinos
 #define sensor A0
