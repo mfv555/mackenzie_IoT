@@ -37,7 +37,7 @@ Protocolo de comunicação: MQTT (Message Queuing Telemetry Transport).
 Publicação de dados: umidade do solo → feed MQTT “umidade-solo”.
 Subscrição de comandos: estado da bomba → feed “estado-bomba”.
 
-Documento CODE_UPLOAD.pdf detalha passo a passo o processo de instalação, configuração e uso do software Arduino IDE para a conexão do computador com a placa ESP8266 e o upload do código.
+Documento UPLOAD_CODE.pdf detalha passo a passo o processo de instalação, configuração e uso do software Arduino IDE para a conexão do computador com a placa ESP8266 e o upload do código.
 Módulos e bibliotecas usados:
 PubSubClient: Biblioteca usada no Arduino IDE para comunicação MQTT.
 WiFi.h: Para conectar o ESP8266 à rede Wi-Fi.
