@@ -2,11 +2,11 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
 
-// Credenciais Wi-Fi
+// Wi-Fi
 #define WLAN_SSID       "WIFI_HOME"
 #define WLAN_PASS       "M@ckenzie2025"
 
-// Credenciais Adafruit IO
+// Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883
 #define AIO_USERNAME    "user_mackenzie_exemplo"
@@ -17,23 +17,22 @@
 #define waterPump D1
 
 WiFiClient client;
-
-// Cliente MQTT
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
 // Feeds
 Adafruit_MQTT_Publish umidadeFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/umidade-solo");
 Adafruit_MQTT_Subscribe bombaFeed = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/estado-bomba");
 
+bool controleManual = false;
+String estadoManual = "0";
+
 void MQTT_connect();
 
 void setup() {
   Serial.begin(115200);
-
   pinMode(waterPump, OUTPUT);
   digitalWrite(waterPump, HIGH); // bomba desligada
 
-  // Conectar ao Wi-Fi
   WiFi.begin(WLAN_SSID, WLAN_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -41,7 +40,6 @@ void setup() {
   }
   Serial.println("\nWiFi conectado");
 
-  // Subscrever feed de controle da bomba
   mqtt.subscribe(&bombaFeed);
 }
 
@@ -51,44 +49,51 @@ const unsigned long intervalo = 3000;
 void loop() {
   MQTT_connect();
 
-  // Verifica comandos da bomba
+  // Verifica comandos manuais
   Adafruit_MQTT_Subscribe *subscription;
   while ((subscription = mqtt.readSubscription(100))) {
     if (subscription == &bombaFeed) {
-      String valor = (char *)bombaFeed.lastread;
-      Serial.print("Comando da bomba recebido: ");
-      Serial.println(valor);
-      digitalWrite(waterPump, valor == "1" ? LOW : HIGH);
+      estadoManual = (char *)bombaFeed.lastread;
+      controleManual = true;
+      Serial.print("Comando manual recebido: ");
+      Serial.println(estadoManual);
     }
   }
 
-  // Envia umidade a cada 3 segundos
   if (millis() - ultimaLeitura > intervalo) {
     ultimaLeitura = millis();
     int leitura = analogRead(sensor);
     int umidade = map(leitura, 0, 1024, 100, 0);
-    Serial.print("Umidade: ");
+    Serial.print("Umidade (%): ");
     Serial.println(umidade);
-    if (!umidadeFeed.publish(umidade)) {
-      Serial.println("Falha ao publicar umidade");
+
+    umidadeFeed.publish(umidade);  // envia ao Adafruit IO
+
+    // Controle da bomba
+    if (controleManual) {
+      digitalWrite(waterPump, estadoManual == "1" ? LOW : HIGH);
+    } else {
+      if (umidade < 40) {
+        digitalWrite(waterPump, LOW);  // solo seco → liga bomba
+        Serial.println("Modo automático: bomba LIGADA");
+      } else {
+        digitalWrite(waterPump, HIGH); // solo úmido → desliga bomba
+        Serial.println("Modo automático: bomba DESLIGADA");
+      }
     }
   }
 }
 
-// Conexão MQTT
 void MQTT_connect() {
   int8_t ret;
-
   if (mqtt.connected()) return;
 
   Serial.print("Conectando ao MQTT... ");
-
   while ((ret = mqtt.connect()) != 0) {
     Serial.println(mqtt.connectErrorString(ret));
     Serial.println("Tentando novamente em 5 segundos...");
     mqtt.disconnect();
     delay(5000);
   }
-
   Serial.println("Conectado ao MQTT!");
 }
