@@ -4,13 +4,13 @@
 
 // Wi-Fi
 #define WLAN_SSID       "WIFI_HOME"
-#define WLAN_PASS       "M@ckenzie2025"
+#define WLAN_PASS       "Ex3mpl0_2025"
 
 // Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883
-#define AIO_USERNAME    "user_mackenzie_exemplo"
-#define AIO_KEY         "aio_EXEMPLO_VE6Cg6po4Qhj"
+#define AIO_USERNAME    "user_exeplo_123"
+#define AIO_KEY         "aio_EXEMPLO_aaOFKlHtmz60kEKwZ"
 
 // Pinos
 #define sensor A0
@@ -23,15 +23,16 @@ Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO
 Adafruit_MQTT_Publish umidadeFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/umidade-solo");
 Adafruit_MQTT_Subscribe bombaFeed = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/estado-bomba");
 
-bool controleManual = false;
-String estadoManual = "0";
+bool bombaLigada = false;
+const int UMIDADE_LIMITE = 30; // em porcentagem (0 a 100)
 
 void MQTT_connect();
 
 void setup() {
   Serial.begin(115200);
   pinMode(waterPump, OUTPUT);
-  digitalWrite(waterPump, HIGH); // bomba desligada
+  digitalWrite(waterPump, HIGH); // Bomba desligada no início
+  bombaLigada = false;
 
   WiFi.begin(WLAN_SSID, WLAN_PASS);
   while (WiFi.status() != WL_CONNECTED) {
@@ -49,36 +50,50 @@ const unsigned long intervalo = 3000;
 void loop() {
   MQTT_connect();
 
-  // Verifica comandos manuais
+  // Comandos manuais
   Adafruit_MQTT_Subscribe *subscription;
   while ((subscription = mqtt.readSubscription(100))) {
     if (subscription == &bombaFeed) {
-      estadoManual = (char *)bombaFeed.lastread;
-      controleManual = true;
+      String valor = (char *)bombaFeed.lastread;
       Serial.print("Comando manual recebido: ");
-      Serial.println(estadoManual);
+      Serial.println(valor);
+
+      if (valor == "1") {
+        digitalWrite(waterPump, LOW);
+        bombaLigada = true;
+        Serial.println("Bomba LIGADA manualmente");
+      } else if (valor == "0") {
+        digitalWrite(waterPump, HIGH);
+        bombaLigada = false;
+        Serial.println("Bomba DESLIGADA manualmente");
+      }
     }
   }
 
+  // Verificação da umidade a cada intervalo
   if (millis() - ultimaLeitura > intervalo) {
     ultimaLeitura = millis();
-    int leitura = analogRead(sensor);
-    int umidade = map(leitura, 0, 1024, 100, 0);
+
+    int leitura = analogRead(sensor); // 0 = úmido, 1023 = seco
+    int umidadePercentual = map(leitura, 1023, 0, 0, 100); // quanto menor leitura, maior umidade
+
     Serial.print("Umidade (%): ");
-    Serial.println(umidade);
+    Serial.println(umidadePercentual);
 
-    umidadeFeed.publish(umidade);  // envia ao Adafruit IO
+    umidadeFeed.publish(umidadePercentual);
 
-    // Controle da bomba
-    if (controleManual) {
-      digitalWrite(waterPump, estadoManual == "1" ? LOW : HIGH);
+    // A lógica agora é baseada no percentual de umidade
+    if (umidadePercentual > UMIDADE_LIMITE) {
+      if (!bombaLigada) {
+        digitalWrite(waterPump, LOW);
+        bombaLigada = true;
+        Serial.println("Bomba LIGADA automaticamente (solo seco)");
+      }
     } else {
-      if (umidade < 40) {
-        digitalWrite(waterPump, LOW);  // solo seco → liga bomba
-        Serial.println("Modo automático: bomba LIGADA");
-      } else {
-        digitalWrite(waterPump, HIGH); // solo úmido → desliga bomba
-        Serial.println("Modo automático: bomba DESLIGADA");
+      if (bombaLigada) {
+        digitalWrite(waterPump, HIGH);
+        bombaLigada = false;
+        Serial.println("Bomba DESLIGADA automaticamente (solo úmido)");
       }
     }
   }
